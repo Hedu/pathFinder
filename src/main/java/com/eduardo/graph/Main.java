@@ -21,9 +21,8 @@ public class Main {
 
     private static final int UNIVERSAL_ERROR_CODE = -1;
 
-    private static final String BPMN_FILE_URL = "https://n35ro2ic4d.execute-api.eu-central-1.amazonaws" + ".com/prod" +
-            "/engine-rest/process-definition/key/invoice/xml";
-
+    private static final String BPMN_FILE_URL = "https://n35ro2ic4d.execute-api.eu-central-1.amazonaws" +
+            ".com/prod/engine-rest/process-definition/key/invoice/xml";
 
     public static void main(final String[] args) {
 
@@ -53,8 +52,8 @@ public class Main {
 
     /**
      * Validates the input and normalizes it
-     * @param args
-     * @return
+     * @param args the input from the command line
+     * @return the normalized object
      */
     private static InputForm processInput(final String[] args) {
         if (args.length != 2) {
@@ -65,7 +64,7 @@ public class Main {
 
     /**
      * Gets the xml definition from the url and converts it to a POJO
-     * @return
+     * @return the definition
      * @throws IOException
      * @throws InterruptedException
      */
@@ -90,25 +89,24 @@ public class Main {
                                         final String finalNode) {
 
         // The list of available flows (connections)
-        Collection<SequenceFlow> flows = modelInstance.getModelElementsByType(SequenceFlow.class).stream().collect(Collectors.toUnmodifiableList());
+        Collection<SequenceFlow> flows =
+                modelInstance.getModelElementsByType(SequenceFlow.class).stream().collect(Collectors.toUnmodifiableList());
 
         // The last node of our sequence (it points to null)
         LinkedName finalLinkedName = new LinkedName(finalNode, null);
 
-        // We initialize the list of nodes to explore (nodes that point to the last node).
-        // We are iterating backwards, from tail to head
-        List<LinkedName> linkedNames =  flows.stream().filter(flow -> Objects.equals(flow.getTarget().getId(), finalNode))
-                        .map(flow -> new LinkedName(flow.getSource().getId(), finalLinkedName))
-                        .collect(Collectors.toCollection(LinkedList::new));
+        // We initialize the list of nodes to explore, starting from the final node, since we are going to iterate
+        // backwards, from tail to head
+        List<LinkedName> openLinkedNames =  new LinkedList<>();
+        openLinkedNames.add(finalLinkedName);
 
-        // The list of elements that we don't want to explore. It's initialized with the final node.
+        // The list of elements that we already explored, so not need to explore them again
         List<String> closedNames = new ArrayList<>();
-        closedNames.add(finalNode);
 
         LinkedName resultingLinkedName = null;
 
-        while (!linkedNames.isEmpty()) {
-            LinkedName linkedName = linkedNames.get(0);
+        while (!openLinkedNames.isEmpty()) {
+            LinkedName linkedName = openLinkedNames.get(0);
             if (linkedName.getName().equals(initialNode)) {
                 resultingLinkedName = linkedName;
                 break;
@@ -116,12 +114,12 @@ public class Main {
             flows.stream().filter(flow -> Objects.equals(flow.getTarget().getId(), linkedName.getName()))
                     .map(flow -> new LinkedName(flow.getSource().getId(), linkedName))
                     .forEach(newLinkedName -> {
-                        if (linkedNames.stream().noneMatch(ln -> ln.getName().equals(newLinkedName.getName())) &&
+                        if (openLinkedNames.stream().noneMatch(ln -> ln.getName().equals(newLinkedName.getName())) &&
                             closedNames.stream().noneMatch(name -> name.equals(newLinkedName.getName()))) {
-                                linkedNames.add(newLinkedName);
+                                openLinkedNames.add(newLinkedName);
                         }
                     });
-            linkedNames.remove(0);
+            openLinkedNames.remove(0);
             closedNames.add(linkedName.getName());
         }
 
